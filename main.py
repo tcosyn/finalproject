@@ -28,6 +28,67 @@ centerFrame = (centerW, centerH)
 print(f'Resolution: {camW} x {camH}')
 print(f'FPS: {fps}')
 
+# Set target marker
+desiredMarker = [0, 0, 0, 0, 0, 0, 0,
+                 0, 1, 0, 1, 0, 0, 0,
+                 0, 0, 1, 0, 1, 1, 0,
+                 0, 0, 1, 1, 0, 0, 0,
+                 0, 1, 0, 1, 0, 1, 0,
+                 0, 1, 1, 1, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, ]
+
+camMat = [[871.44787261, 0., 650.25160681],
+          [0., 871.52075908, 360.34973424],
+          [0., 0., 1.]]
+camMat = np.array(camMat)
+
+dist = [[1.25687971e-01, -5.62764418e-01, 1.49339503e-03, 5.88682632e-04,
+         6.86198927e-01]]
+dist = np.array(dist)
+
+# Define marker axes from corner
+# markerAxes = [[0., 0., 0.],
+#               [50.8, 0., 0.],
+#               [0., 50.8, 0.],
+#               [0., 0., -50.8]]
+
+# Define marker axes from center
+markerAxes = [[25.4, 25.4, 0.],
+              [76.2, 25.4, 0.],
+              [25.4, 76.2, 0.],
+              [25.4, 25.4, -76.2]]
+markerAxes = np.array(markerAxes)
+
+# Define world locations
+def genWorldPoint():
+    r0 = [[[0, 0, 0],
+           [50.8, 0, 0],
+           [50.8, 50.8, 0],
+           [0, 50.8, 0]]]
+
+    r1 = [[[0, 50.8, 0],
+           [0, 0, 0],
+           [50.8, 0, 0],
+           [50.8, 50.8, 0]]]
+
+    r2 = [[[50.8, 50.8, 0],
+           [0, 50.8, 0],
+           [0, 0, 0],
+           [50.8, 0, 0]]]
+
+    r3 = [[[50.8, 0, 0],
+           [50.8, 50.8, 0],
+           [0, 50.8, 0],
+           [0, 0, 0]]]
+
+    worldPointList = list([r0, r1, r2, r3])
+
+    worldPointList[0] = np.array(r0)
+    worldPointList[1] = np.array(r1)
+    worldPointList[2] = np.array(r2)
+    worldPointList[3] = np.array(r3)
+
+    return worldPointList
 
 
 def resizeWarp(img, square_size):
@@ -56,17 +117,8 @@ def matchBIT(contour):
     dim = 7  # Set dimension of marker
     square_size = 1  # in meters
 
-    # Set target marker
-    desiredMarker = [0, 0, 0, 0, 0, 0, 0,
-                     0, 1, 0, 1, 0, 0, 0,
-                     0, 0, 1, 0, 1, 1, 0,
-                     0, 0, 1, 1, 0, 0, 0,
-                     0, 1, 0, 1, 0, 1, 0,
-                     0, 1, 1, 1, 0, 0, 0,
-                     0, 0, 0, 0, 0, 0, 0, ]
-
     # Initialize array to be filled with binary data
-    cropped_bin1 = np.zeros((dim, dim))
+    c1 = np.zeros((dim, dim))
 
     # Set dimension for resizing of contour to be compared
     width = int(7)
@@ -84,37 +136,37 @@ def matchBIT(contour):
         for j in range(dim):
             x1, y1 = j * square_size, i * square_size
             x2, y2 = (j + 1) * square_size, (i + 1) * square_size
-            cropped_bin1[i, j] = int(np.mean(cnt1[y1:y2, x1:x2]) > 128)
+            c1[i, j] = int(np.mean(cnt1[y1:y2, x1:x2]) > 128)
 
     # Create bins for rotated contour binary
-    cropped_bin2 = cv2.rotate(cropped_bin1, cv2.ROTATE_90_CLOCKWISE)
-    cropped_bin3 = cv2.rotate(cropped_bin2, cv2.ROTATE_90_CLOCKWISE)
-    cropped_bin4 = cv2.rotate(cropped_bin3, cv2.ROTATE_90_CLOCKWISE)
+    c2 = cv2.rotate(c1, cv2.ROTATE_90_CLOCKWISE)
+    c3 = cv2.rotate(c2, cv2.ROTATE_90_CLOCKWISE)
+    c4 = cv2.rotate(c3, cv2.ROTATE_90_CLOCKWISE)
 
-    print(cropped_bin1)
+    print(c1)
     # Convert from 2D to 1D array
-    cropped_bin1 = cropped_bin1.reshape(-1)
-    cropped_bin2 = cropped_bin2.reshape(-1)
-    cropped_bin3 = cropped_bin3.reshape(-1)
-    cropped_bin4 = cropped_bin4.reshape(-1)
+    c1 = c1.reshape(-1)
+    c2 = c2.reshape(-1)
+    c3 = c3.reshape(-1)
+    c4 = c4.reshape(-1)
 
-    matchRating1 = np.sum(cropped_bin1 == desiredMarker) / len(desiredMarker)
-    matchRating2 = np.sum(cropped_bin2 == desiredMarker) / len(desiredMarker)
-    matchRating3 = np.sum(cropped_bin3 == desiredMarker) / len(desiredMarker)
-    matchRating4 = np.sum(cropped_bin4 == desiredMarker) / len(desiredMarker)
+    match1 = np.sum(c1 == desiredMarker) / len(desiredMarker)
+    match2 = np.sum(c2 == desiredMarker) / len(desiredMarker)
+    match3 = np.sum(c3 == desiredMarker) / len(desiredMarker)
+    match4 = np.sum(c4 == desiredMarker) / len(desiredMarker)
 
     # Set threshold for match
     threshold = .96
 
     # Check for matches
-    if (matchRating1 > threshold) | (matchRating2 > threshold) | (matchRating3 > threshold) | (
-            matchRating4 > threshold):
-        print(f"MARKER MATCH! Match:{max(matchRating1, matchRating2, matchRating3, matchRating4)}\n\n")
-        if matchRating1 > matchRating2 and matchRating1 > matchRating3 and matchRating1 > matchRating4:
+    if (match1 > threshold) | (match2 > threshold) | (match3 > threshold) | (
+            match4 > threshold):
+        print(f"MARKER MATCH! Match:{max(match1, match2, match3, match4)}\n\n")
+        if match1 > match2 and match1 > match3 and match1 > match4:
             return True, 0
-        elif matchRating2 > matchRating1 and matchRating2 > matchRating3 and matchRating2 > matchRating4:
+        elif match2 > match1 and match2 > match3 and match2 > match4:
             return True, 1
-        elif matchRating3 > matchRating1 and matchRating3 > matchRating2 and matchRating3 > matchRating4:
+        elif match3 > match1 and match3 > match2 and match3 > match4:
             return True, 2
         else:
             return True, 3
@@ -143,6 +195,8 @@ def orderCornersN(crnrs):
     ordrd_crnrs = ordrd_crnrs.reshape(4, 1, 2)
     return ordrd_crnrs
 
+
+worldPoints = genWorldPoint()
 
 while captureCam.isOpened():
     # Read camera data
@@ -216,7 +270,7 @@ while captureCam.isOpened():
                         approxINT = np.intp(approx)
 
                         # Outline contour as green in frame
-                        cv2.drawContours(frame, [approxINT], 0, (0, 255, 0), 1)
+                        # cv2.drawContours(frame, [approxINT], 0, (0, 255, 0), 1)
 
                         # Calculate center point
                         center_x = (approx[0][0][0] + approx[1][0][0] + approx[2][0][0] + approx[3][0][0]) / 4.0
@@ -250,11 +304,31 @@ while captureCam.isOpened():
                         # Write amount of rotations on top left corner
                         cv2.putText(frame, str(rotVal), approxINT[0].ravel(), font, 0.5, (255, 0, 0))
 
+                        # Get pose of marker using solvePnP
+                        _, rvec, tvec = cv2.solvePnP(worldPoints[rotVal], approx, camMat, dist)
+
+                        # Translate 3D points into 2D for display on image
+                        drawAxes = 0
+                        drawAxes, _ = cv2.projectPoints(markerAxes, rvec, tvec, camMat, dist, drawAxes)
+                        drawAxes = np.int0(drawAxes)
+
+                        # Draw pose and axes
+                        cv2.line(frame, drawAxes[0, 0, :], drawAxes[1, 0, :], (0, 0, 255), 2)
+                        cv2.line(frame, drawAxes[0, 0, :], drawAxes[2, 0, :], (0, 255, 0), 2)
+                        cv2.line(frame, drawAxes[0, 0, :], drawAxes[3, 0, :], (255, 0, 0), 2)
+
+                        # convert rvec from radians to degrees
+                        rvecDeg = np.rad2deg(rvec)
+
+                        # Write degree of rotation with respect to axis
+                        cv2.putText(frame, str(int(rvecDeg[0])), drawAxes[1, 0, :], font, 0.8, (0, 0, 255))
+                        cv2.putText(frame, str(int(rvecDeg[1])), drawAxes[2, 0, :], font, 0.8, (0, 255, 0))
+                        cv2.putText(frame, str(int(rvecDeg[2])), drawAxes[3, 0, :], font, 0.8, (255, 0, 0))
 
                         print(approx)
                         break
                     else:
-                        cv2.drawContours(frame, [np.intp(approx)], 0, (0, 0, 255), 1)
+                        cv2.drawContours(frame, [np.intp(approx)], 0, (0, 0, 255), 2)
 
         cv2.imshow("Webcam", frame)  # stream with corner detected points
         key = cv2.waitKey(1)
