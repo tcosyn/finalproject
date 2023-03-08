@@ -135,7 +135,6 @@ void System_Init(void) {
     init = false;
 }
 
-//
 void set_PWM(uint8_t select, uint16_t duty)
  {
     if (select == 5) {
@@ -148,7 +147,7 @@ void set_PWM(uint8_t select, uint16_t duty)
         PWM7DCH = (duty & 0x03FC) >> 2;
         PWM7DCL = (duty & 0x0003) << 6;
     } else if (select == 8) {
-        PWM8DCH = (duty & 0x03FC) > >2;
+        PWM8DCH = (duty & 0x03FC) >> 2;
         PWM8DCL = (duty & 0x0003) << 6;
     } else {
         // Should never happen

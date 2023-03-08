@@ -17,7 +17,7 @@ void Timer_ISR(void) {
     static volatile uint16_t timer_count = 0;
     if (++timer_count >= 1000)
     {
-        CountCallBack = 0;
+        timer_count = 0;
         encoder_flag = true;
     }
 }
