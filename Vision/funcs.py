@@ -3,6 +3,8 @@ import staticVars as v
 import numpy as np
 
 v.init()
+
+
 # Define world locations
 def genWorldPoint():
     r0 = [[[0, 0, 0],
@@ -87,7 +89,9 @@ def matchBIT(contour):
     c3 = cv2.rotate(c2, cv2.ROTATE_90_CLOCKWISE)
     c4 = cv2.rotate(c3, cv2.ROTATE_90_CLOCKWISE)
 
-    print(c1)
+    if v.fullFeedback:
+        print(c1)
+
     # Convert from 2D to 1D array
     c1 = c1.reshape(-1)
     c2 = c2.reshape(-1)
@@ -105,7 +109,9 @@ def matchBIT(contour):
     # Check for matches
     if (match1 > threshold) | (match2 > threshold) | (match3 > threshold) | (
             match4 > threshold):
-        print(f"MARKER MATCH! Match:{max(match1, match2, match3, match4)}\n\n")
+        if v.fullFeedback:
+            print(f"MARKER MATCH! Match:{max(match1, match2, match3, match4)}\n\n")
+
         if match1 > match2 and match1 > match3 and match1 > match4:
             return True, 0
         elif match2 > match1 and match2 > match3 and match2 > match4:

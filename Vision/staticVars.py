@@ -3,7 +3,7 @@ import numpy as np
 
 
 def init():
-    global font, criteria, desiredMarker, camMat, dist, markerAxes, detectAll
+    global font, criteria, desiredMarker, camMat, dist, markerAxes, detectAll, drawExtraFrames, fullFeedback
 
     # Set font for display
     font = cv2.FONT_HERSHEY_COMPLEX
@@ -42,4 +42,7 @@ def init():
                   [25.4, 25.4, -25.4]]
     markerAxes = np.array(markerAxes)
 
+    # Reduce user feedback to ease computational load on pi
     detectAll = True
+    drawExtraFrames = False
+    fullFeedback = False

@@ -91,7 +91,9 @@ while captureCam.isOpened():
                     cv2.imshow("opened", resized_up)
 
                     # Check if square is marker
-                    print("checking")
+                    if v.fullFeedback:
+                        print("checking")
+
                     isMarker, rotVal = f.matchBIT(warpbin)
 
                     if isMarker:
@@ -153,7 +155,8 @@ while captureCam.isOpened():
                         cv2.putText(frame, str(int(rvecDeg[1])), drawAxes[2, 0, :], v.font, 0.8, (0, 255, 0))
                         cv2.putText(frame, str(int(rvecDeg[2])), drawAxes[3, 0, :], v.font, 0.8, (255, 0, 0))
 
-                        print(approx)
+                        if v.fullFeedback:
+                            print(approx)
                         if not v.detectAll:
                             break
                     else:
