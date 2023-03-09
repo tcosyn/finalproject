@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 # lsusb to check device name
 #dmesg | grep "tty" to find port name
+#author: Milind Devnani
 
 import serial
 import time
