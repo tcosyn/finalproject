@@ -1,9 +1,28 @@
+#author: Milind Devnani
 from time import sleep
 import RPi.GPIO as GPIO
 import math
 import serial
 import time
 
+def setServoAngleUpDown(angle):
+    servo = 17
+    GPIO.setup(servo, GPIO.OUT)
+    pwm = GPIO.PWM(servo, 50)
+    pwm.start(8)
+    dutyCycle = angle / 18. + 3.
+    pwm.ChangeDutyCycle(dutyCycle)
+    sleep(0.01)
+
+
+def setServoAngleLeftRight(angle):
+    servo = 27
+    GPIO.setup(servo, GPIO.OUT)
+    pwm = GPIO.PWM(servo, 50)
+    pwm.start(8)
+    dutyCycle = angle / 18. + 3.
+    pwm.ChangeDutyCycle(dutyCycle)
+    sleep(0.01)
 
 def init():
     global bytesAllowed, checkBytes, Lidar_UART, currAngle
@@ -17,6 +36,14 @@ def init():
 
     print("Now connecting to LiDAR")
     Lidar_UART = serial.Serial("/dev/ttyUSB0", 115200, timeout=0)  # Connecting Lidar UART at baud rate 115200
+
+
+
+    # IMPORTANT, WE HAVE TO MAKE SURE THE ARM STARTS AT 90 DEGREES AT STARTUP
+    for i in range(4):
+        setServoAngleUpDown(78)
+        sleep(0.05)
+
 
 
 def adjustAngle(x):
@@ -56,26 +83,6 @@ def readLidarBytes():
             return dist
 
 
-def setServoAngleUpDown(angle):
-    servo = 17
-    GPIO.setup(servo, GPIO.OUT)
-    pwm = GPIO.PWM(servo, 50)
-    pwm.start(8)
-    dutyCycle = angle / 18. + 3.
-    pwm.ChangeDutyCycle(dutyCycle)
-    sleep(0.01)
-
-
-def setServoAngleLeftRight(angle):
-    servo = 27
-    GPIO.setup(servo, GPIO.OUT)
-    pwm = GPIO.PWM(servo, 50)
-    pwm.start(8)
-    dutyCycle = angle / 18. + 3.
-    pwm.ChangeDutyCycle(dutyCycle)
-    sleep(0.01)
-
-
 def calculateAngle(xoffset, yoffset):
     global currAngle
     flag = 1
@@ -88,10 +95,6 @@ def calculateAngle(xoffset, yoffset):
     return currAngle
 
 
-# IMPORTANT, WE HAVE TO MAKE SURE THE ARM STARTS AT 90 DEGREES AT STARTUP
-for i in range(4):
-    setServoAngleUpDown(78)
-    sleep(0.05)
 
 
 def LidarLatestDistance():
@@ -113,20 +116,31 @@ def LidarLatestDistance():
         return 1  # if Lidar is not working, sending 1-cm
 
 
-init()
+def move_Arm_by_Yoffset(Y_offset_value):
 
-while True:
-    new_yoffset = int(input("Type yoffset: "))
+	# new_yoffset = int(input("Type yoffset: "))
+    new_yoffset = Y_offset_value
+        
 
-    # new_LidrDist = int(input("Type xoffset: "))
+	# new_LidrDist = int(input("Type xoffset: "))
     new_LidrDist = LidarLatestDistance()
 
-    new_angle = calculateAngle(new_LidrDist, new_yoffset)
+	#new_angle = calculateAngle(new_LidrDist, new_yoffset)
+    
+    new_angle = adjustAngle(new_yoffset)
 
     for i in range(1, 5):
-        setServoAngleUpDown(new_yoffset)
+        setServoAngleUpDown(new_angle)
         sleep(0.01)
         print(new_angle)
+    print("Arm cycle completed as per offset_value")
 
-GPIO.cleanup()
-print("Program completed")
+init()
+
+#step1 >> import this complete file in main_opencv_code >> import SvALdr as s,a,b,etc...
+
+#step2 >> whenever you want to move arm  by passing y_offset call this function like this >> s(or whatever it has been imported as).move_Arm_by_Yoffset(Y_offset_value)
+
+#put this at end of opencv main file
+# GPIO.cleanup()
+# print("Program completed")
