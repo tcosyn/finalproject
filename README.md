@@ -1,2 +1,2 @@
 # finalproject
-Computer vision portion for EE 175 project
+Computer vision, lidar and servo arm, and MCU portion for EE 175 project
