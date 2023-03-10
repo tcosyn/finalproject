@@ -69,7 +69,7 @@
 
 
 uint8_t current_command[32];
-uint8_t left_count, right_count, prev_left_count, prev_right_count;
+uint16_t left_count, right_count, prev_left_count, prev_right_count;
 bool command_flag, encoder_flag, init;
 
 void System_Init(void) {
@@ -135,20 +135,30 @@ void System_Init(void) {
     init = false;
 }
 
-void set_PWM(uint8_t select, uint16_t duty)
+void set_PWM(uint8_t byte1, uint8_t byte2)
  {
-    if (select == 5) {
-        PWM5DCH = (duty & 0x03FC) >> 2;
-        PWM5DCL = (duty & 0x0003) << 6;
-    } else if (select == 6) {
-        PWM6DCH = (duty & 0x03FC) >> 2;
-        PWM6DCL = (duty & 0x0003)<<6;
-    } else if (select == 7) {
-        PWM7DCH = (duty & 0x03FC) >> 2;
-        PWM7DCL = (duty & 0x0003) << 6;
-    } else if (select == 8) {
-        PWM8DCH = (duty & 0x03FC) >> 2;
-        PWM8DCL = (duty & 0x0003) << 6;
+    uint8_t select = byte1 & 0x03;
+    uint8_t duty1 = byte1 & 0xC0;
+    uint8_t duty2 = byte2;
+    
+    if (select == 0x00) {
+        UART_Write('1');
+        //8 MSB
+        PWM5DCH = duty2;
+        //2 LSB
+        PWM5DCL = duty1;
+    } else if (select == 0x40) {
+        UART_Write('2');
+        PWM6DCH = duty2;
+        PWM6DCL = duty1;
+    } else if (select == 0x80) {
+        UART_Write('3');
+        PWM7DCH = duty2;
+        PWM7DCL = duty1;
+    } else if (select == 0xC0) {
+        UART_Write('4');
+        PWM8DCH = duty2;
+        PWM8DCL = duty1;
     } else {
         // Should never happen
     }
@@ -157,19 +167,19 @@ void set_PWM(uint8_t select, uint16_t duty)
 //interrupt handler
 void __interrupt() INTERRUPT_Handler (void) {
     //disable global interrupts until handled
-    INTCON0bits.GIE = 0;
+    //INTCON0bits.GIE = 0;
     if(PIE3bits.U1RXIE == 1 && PIR3bits.U1RXIF == 1) {
         UART_RX_ISR();
     }
     else if(PIE1bits.INT0IE == 1 && PIR1bits.INT0IF == 1)
     {
         left_count++;
-        PIR1bits.INT0IF = 1;
+        PIR1bits.INT0IF = 0;
     }
     else if(PIE5bits.INT1IE == 1 && PIR5bits.INT1IF == 1)
     {
         right_count++;
-        PIR5bits.INT1IF = 1;
+        PIR5bits.INT1IF = 0;
     }
     else if(PIE4bits.TMR2IE == 1 && PIR4bits.TMR2IF == 1)
     {
@@ -179,42 +189,13 @@ void __interrupt() INTERRUPT_Handler (void) {
     else {
         // Should never happen
     }
-    INTCON0bits.GIE = 1;
+    //INTCON0bits.GIE = 1;
 }
 
 //parse command and set motor pwm if valid
 void interpret_command(uint8_t* command) {
-    uint8_t* error_msg = "COMMAND ERROR\n";
-    uint8_t length = 0;
     uint8_t* ptr = command;
-    /* Check length of message for incorrect syntax
-    while (*ptr != '\n') {
-        length++;
-        ptr++;
-    }
-    if (length != 4) {
-        UART_Write_Line(bad_msg);
-        return;
-    }
-    
-    ptr = command;*/
-    
-    //read two MSB from byte to determine left/right motor and direction
-    if ((*ptr & 0xC0) == 0x00) {
-        uint8_t* msg = "LF\n";
-        UART_Write_Line(msg);
-    } else if ((*ptr & 0xC0) == 0x40) {
-        uint8_t* msg = "LB\n";
-        UART_Write_Line(msg);
-    } else if ((*ptr & 0xC0) == 0x80) {
-        uint8_t* msg = "RF\n";
-        UART_Write_Line(msg);
-    } else if ((*ptr & 0xC0) == 0xC0) {
-        uint8_t* msg = "RB\n";
-        UART_Write_Line(msg);
-    } else {
-        UART_Write_Line(error_msg);
-    }
+    set_PWM(*ptr, *(ptr + 1));
 }
 
 void main(void) {
@@ -243,22 +224,32 @@ void main(void) {
     
     //Enable timer interrupt to start reading from encoder
     PIE4bits.TMR2IE = 1;
+    PIE1bits.INT0IE = 1;
+    PIE5bits.INT1IE = 1;
     //Main Loop
     while (1) {
         //available command
         if (command_flag) {
+            //INTCON0bits.GIE = 0;
             UART_Read_Line(command);
             ptr = command;
-            UART_Write_Line(ptr);
-            UART_Write('\n');
             interpret_command(ptr);
             command_flag = false;
+            //INTCON0bits.GIE = 1;
         }
         //read encoder every second NEED IMPLEMENT)
         if (encoder_flag) {
-            UART_Write('f');
-            UART_Write('\n');
+            //INTCON0bits.GIE = 0;
+            uint16_t l_diff = left_count - prev_left_count;
+            uint16_t r_diff = right_count - prev_right_count;
+            UART_Write((uint8_t) (l_diff & 0xFF00));
+            UART_Write((uint8_t) (l_diff & 0x00FF));
+            UART_Write((uint8_t) (r_diff & 0xFF00));
+            UART_Write((uint8_t) (r_diff & 0x00FF));
+            prev_left_count = left_count;
+            prev_right_count = right_count;
             encoder_flag = false;
+            //INTCON0bits.GIE = 1;
         }
     }
 }
