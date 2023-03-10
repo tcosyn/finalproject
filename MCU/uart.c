@@ -1,19 +1,10 @@
-/*
- * File:   uart.c
- * Author: doinn
- *
- * Created on March 4, 2023, 6:10 PM
- */
-
-
 #include <xc.h>
 #include "uart.h"
 #include <string.h>
 #include <stdbool.h>
 
 extern bool command_flag;
-static volatile uint8_t UART_RX_head;
-static volatile uint8_t UART_RX_tail;
+static volatile uint8_t UART_RX_read_ptr;
 static volatile uint8_t UART_RX_buffer[32];
 
 void UART_Init(void) {
@@ -24,8 +15,7 @@ void UART_Init(void) {
     U1CON1 = 0x80;
     U1BRGL = 0x67;
     
-    UART_RX_head = 0;
-    UART_RX_tail = 0;
+    UART_RX_read_ptr = 0;
     command_flag = false;
     
     // enable receive interrupt
@@ -48,8 +38,7 @@ void UART_Read_Line(uint8_t* string)
     for (uint8_t i = 0; i < 32; ++i) {
         string[i] = UART_RX_buffer[i];
     }
-    UART_RX_head = 0;
-    UART_RX_tail = 0;
+    UART_RX_read_ptr = 0;
 }
 
 //write byte to UART
@@ -70,8 +59,8 @@ void UART_Write_Line(uint8_t* string) {
 //read from UART register and store in buffer, if newline, then set flag indicating complete command
 void UART_RX_ISR(void)
 {
-    UART_RX_buffer[UART_RX_tail] = U1RXB;
-    if (UART_RX_buffer[UART_RX_tail] == '\n')
+    UART_RX_buffer[UART_RX_read_ptr] = U1RXB;
+    if (UART_RX_buffer[UART_RX_read_ptr] == '\n')
         command_flag = true;
-    UART_RX_tail++;
+    UART_RX_read_ptr++;
 }

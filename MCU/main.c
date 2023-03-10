@@ -1,10 +1,3 @@
-/*
- * File:   main.c
- * Author: doinn
- *
- * Created on February 13, 2023, 10:53 AM
- */
-
 // CONFIG1L
 #pragma config FEXTOSC = OFF    // External Oscillator Selection (Oscillator not enabled)
 #pragma config RSTOSC = HFINTOSC_64MHZ// Reset Oscillator Selection (HFINTOSC with HFFRQ = 64 MHz and CDIV = 1:1)
@@ -60,17 +53,38 @@
 // #pragma config statements should precede project file includes.
 // Use project enums instead of #define for ON and OFF.
 
-
 #include <xc.h>
 #include "stdbool.h"
 #include "timer.h"
+#include "timer1.h"
 #include "uart.h"
+#include "ccp1.h"
+#include "ccp2.h"
+#include "pwm.h"
 #include <stdbool.h>
 
-
+//global variables
 uint8_t current_command[32];
-uint16_t left_count, right_count, prev_left_count, prev_right_count;
+uint8_t left_freq_1, left_freq_2, right_freq_1, right_freq_2;
 bool command_flag, encoder_flag, init;
+
+//interrupt handler
+void __interrupt() INTERRUPT_Handler (void) {
+    //disable global interrupts until handled
+    //INTCON0bits.GIE = 0;
+    if(PIE3bits.U1RXIE == 1 && PIR3bits.U1RXIF == 1) {
+        UART_RX_ISR();
+    } else if (PIE4bits.CCP1IE == 1 && PIR4bits.CCP1IF == 1) {
+        CCP1_ISR();
+    } else if (PIE7bits.CCP2IE == 1 && PIR7bits.CCP2IF == 1) {
+        CCP2_ISR();
+    } else if (PIE4bits.TMR2IE == 1 && PIR4bits.TMR2IF == 1) {
+        Timer_ISR();
+    } else {
+        // Should never happen
+    }
+    //INTCON0bits.GIE = 1;
+}
 
 void System_Init(void) {
     // Initialize oscillator
@@ -84,129 +98,40 @@ void System_Init(void) {
     TRISA = 0xE4;
     TRISB = 0xFF;
     TRISC = 0xBF;
-    ANSELC = 0x7F;
+    ANSELC = 0x7C;
     ANSELB = 0xFF;
-    ANSELA = 0xDB; 
-
+    ANSELA = 0xFF;
     INLVLA = 0xFF;
     INLVLB = 0xFF;
     INLVLC = 0xFF;
     INLVLE = 0x08;
-    
-    RA4PPS = 0x10;   //RA4->PWM8:PWM8;      
-    RA3PPS = 0x0F;   //RA3->PWM7:PWM7;    
-    RA1PPS = 0x0E;   //RA1->PWM6:PWM6;      
-    RA0PPS = 0x0D;   //RA0->PWM5:PWM5
-    
-    //Initialize PWM
-    PWM5CON = 0x80;   
-    PWM5DCH = 0x00;   
-    PWM5DCL = 0x00;   
-    CCPTMRS1bits.P5TSEL = 1;
-    
-    PWM6CON = 0x80;   
-    PWM6DCH = 0x00;   
-    PWM6DCL = 0x00;   
-    CCPTMRS1bits.P6TSEL = 1;
-    
-    PWM7CON = 0x80;   
-    PWM7DCH = 0x00;   
-    PWM7DCL = 0x00;   
-    CCPTMRS1bits.P7TSEL = 1;
-    
-    PWM8CON = 0x80;   
-    PWM8DCH = 0x00;   
-    PWM8DCL = 0x00;   
-    CCPTMRS1bits.P8TSEL = 1;
-    
-    INT0PPS = 0x02;   //RA2->EXT_INT:INT0;        
-    INT1PPS = 0x05;   //RA5->EXT_INT:INT1;  
-    INTCON0bits.INT0EDG = 1;
-    INTCON0bits.INT1EDG = 1;
     
     //Disable vector table
     INTCON0bits.IPEN = 0;
      //Enable global interrupts
     INTCON0bits.GIE = 1;
     
-    //set flags
+    //Initialize flags
     command_flag = false;
     encoder_flag = false;
     init = false;
 }
 
-void set_PWM(uint8_t byte1, uint8_t byte2)
- {
-    uint8_t select = byte1 & 0x03;
-    uint8_t duty1 = byte1 & 0xC0;
-    uint8_t duty2 = byte2;
-    
-    if (select == 0x00) {
-        UART_Write('1');
-        //8 MSB
-        PWM5DCH = duty2;
-        //2 LSB
-        PWM5DCL = duty1;
-    } else if (select == 0x40) {
-        UART_Write('2');
-        PWM6DCH = duty2;
-        PWM6DCL = duty1;
-    } else if (select == 0x80) {
-        UART_Write('3');
-        PWM7DCH = duty2;
-        PWM7DCL = duty1;
-    } else if (select == 0xC0) {
-        UART_Write('4');
-        PWM8DCH = duty2;
-        PWM8DCL = duty1;
-    } else {
-        // Should never happen
-    }
- }
-
-//interrupt handler
-void __interrupt() INTERRUPT_Handler (void) {
-    //disable global interrupts until handled
-    //INTCON0bits.GIE = 0;
-    if(PIE3bits.U1RXIE == 1 && PIR3bits.U1RXIF == 1) {
-        UART_RX_ISR();
-    }
-    else if(PIE1bits.INT0IE == 1 && PIR1bits.INT0IF == 1)
-    {
-        left_count++;
-        PIR1bits.INT0IF = 0;
-    }
-    else if(PIE5bits.INT1IE == 1 && PIR5bits.INT1IF == 1)
-    {
-        right_count++;
-        PIR5bits.INT1IF = 0;
-    }
-    else if(PIE4bits.TMR2IE == 1 && PIR4bits.TMR2IF == 1)
-    {
-        Timer_ISR();
-        PIR4bits.TMR2IF = 0;
-    }
-    else {
-        // Should never happen
-    }
-    //INTCON0bits.GIE = 1;
-}
-
-//parse command and set motor pwm if valid
-void interpret_command(uint8_t* command) {
-    uint8_t* ptr = command;
-    set_PWM(*ptr, *(ptr + 1));
-}
-
 void main(void) {
     System_Init();
     Timer_Init();
+    Timer1_Init();
     UART_Init();
-
+    CCP1_Init();
+    CCP2_Init();
+    PWM_Init();
+    
+    //Command input buffer
     uint8_t* command[32];
+    //Pointer to keep track of location
     uint8_t* ptr;
     
-    //Get initialized signal from PI
+    //Get initialized signal from PI before proceeding
     while (!init) {
         if (command_flag) {
             UART_Read_Line(command);
@@ -222,34 +147,32 @@ void main(void) {
         }
     }
     
-    //Enable timer interrupt to start reading from encoder
+    //Enable CCP1 interrupt to calculate frequency
+    PIE4bits.CCP1IE = 1;
+    //Enable CCP2 interrupt to calculate frequency
+    PIE7bits.CCP2IE = 1;
+    //Enable timer interrupt to start sending frequency every second
     PIE4bits.TMR2IE = 1;
-    PIE1bits.INT0IE = 1;
-    PIE5bits.INT1IE = 1;
+    
     //Main Loop
     while (1) {
-        //available command
+        //flag for incoming command
         if (command_flag) {
             //INTCON0bits.GIE = 0;
             UART_Read_Line(command);
             ptr = command;
-            interpret_command(ptr);
+            PWM_Set(*ptr, *(ptr + 1));
             command_flag = false;
             //INTCON0bits.GIE = 1;
         }
-        //read encoder every second NEED IMPLEMENT)
+        
+        //flag to print encoder every second
         if (encoder_flag) {
-            //INTCON0bits.GIE = 0;
-            uint16_t l_diff = left_count - prev_left_count;
-            uint16_t r_diff = right_count - prev_right_count;
-            UART_Write((uint8_t) (l_diff & 0xFF00));
-            UART_Write((uint8_t) (l_diff & 0x00FF));
-            UART_Write((uint8_t) (r_diff & 0xFF00));
-            UART_Write((uint8_t) (r_diff & 0x00FF));
-            prev_left_count = left_count;
-            prev_right_count = right_count;
+            UART_Write(left_freq_1);
+            UART_Write(left_freq_2);
+            UART_Write(right_freq_1);
+            UART_Write(right_freq_2);
             encoder_flag = false;
-            //INTCON0bits.GIE = 1;
         }
     }
 }
