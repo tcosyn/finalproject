@@ -1,4 +1,5 @@
 #cited: https://github.com/makerportal/tfluna-python. I used this as reference to code the Lidar.
+#cited: https://medium.com/@rovai/pan-tilt-multi-servo-control-62f723d03f26. I used this as a reference to code the setServoAngleUpDown and setServoAngleLeftRight functions
 #author: Milind Devnani
 from time import sleep
 import RPi.GPIO as GPIO
@@ -30,7 +31,7 @@ def setServoAngleUpDown(angle):
     #print("pwm start")
     pwm.start(8)# Starting the PWM signal with duty cycle of 8%
     # Calculating the duty cycle based on the angle of the servo motor
-    dutyCycle = angle / 18. + 3.
+    dutyCycle = angle / 18. + 3.#3% at 0 degrees, 13% at 180 degrees - so Duty cycle = angle/18 + 3
     # Calculating the step size based on the number of steps
     step_size = (dutyCycle - oldDuty)/num_steps
     # Incrementing the duty cycle in steps to smoothly move the servo motor
@@ -71,7 +72,7 @@ def setServoAngleLeftRight(angle):
     pwm = GPIO.PWM(servo, 300)# PWM frequency of 300 Hz
     pwm.start(8)# Starting the PWM signal with duty cycle of 8%
     # Calculating the duty cycle based on the angle of the servo motor
-    dutyCycle = angle / 18. + 3. # Setting the duty cycle for the servo motor
+    dutyCycle = angle / 18. + 3. # Setting the duty cycle for the servo motor/ #3% at 0 degrees, 13% at 180 degrees - so Duty cycle = angle/18 + 3
     pwm.ChangeDutyCycle(dutyCycle)
     sleep(0.02)
     # Stopping the PWM signal
