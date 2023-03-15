@@ -25,16 +25,8 @@ void UART_Init(void) {
     U1CON0bits.TXEN = 1; 
 }
 
-//read directly from UART register
-uint8_t UART_Read(void)
-{
-    while(!PIR3bits.U1RXIF){}
-    return U1RXB;
-}
-
 //transfer contents of buffer up to newline character to the pointer argument
-void UART_Read_Line(uint8_t* string) 
-{
+void UART_Read_Line(uint8_t* string) {
     for (uint8_t i = 0; i < 32; ++i) {
         string[i] = UART_RX_buffer[i];
     }
@@ -57,8 +49,7 @@ void UART_Write_Line(uint8_t* string) {
 }
 
 //read from UART register and store in buffer, if newline, then set flag indicating complete command
-void UART_RX_ISR(void)
-{
+void UART_RX_ISR(void) {
     UART_RX_buffer[UART_RX_read_ptr] = U1RXB;
     if (UART_RX_buffer[UART_RX_read_ptr] == '\n')
         command_flag = true;

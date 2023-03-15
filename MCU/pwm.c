@@ -7,24 +7,13 @@ void PWM_Init(void) {
     RA3PPS = 0x0F;   //RA3->PWM7:PWM7;
     RA4PPS = 0x10;   //RA4->PWM8:PWM8;  
     
-    PWM5CON = 0x80;   
-    PWM5DCH = 0x00;   
-    PWM5DCL = 0x00;   
+    PWM5CON = 0x80;    
     CCPTMRS1bits.P5TSEL = 1;
-    
-    PWM6CON = 0x80;   
-    PWM6DCH = 0x00;   
-    PWM6DCL = 0x00;   
+    PWM6CON = 0x80;    
     CCPTMRS1bits.P6TSEL = 1;
-    
-    PWM7CON = 0x80;   
-    PWM7DCH = 0x00;   
-    PWM7DCL = 0x00;   
+    PWM7CON = 0x80;     
     CCPTMRS1bits.P7TSEL = 1;
-    
-    PWM8CON = 0x80;   
-    PWM8DCH = 0x00;   
-    PWM8DCL = 0x00;   
+    PWM8CON = 0x80;    
     CCPTMRS1bits.P8TSEL = 1;
 }
 

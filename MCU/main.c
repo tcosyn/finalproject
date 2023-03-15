@@ -70,20 +70,17 @@ bool command_flag, encoder_flag, init;
 
 //interrupt handler
 void __interrupt() INTERRUPT_Handler (void) {
-    //disable global interrupts until handled
-    //INTCON0bits.GIE = 0;
-    if(PIE3bits.U1RXIE == 1 && PIR3bits.U1RXIF == 1) {
+    if(PIE3bits.U1RXIE && PIR3bits.U1RXIF) {
         UART_RX_ISR();
-    } else if (PIE4bits.CCP1IE == 1 && PIR4bits.CCP1IF == 1) {
+    } else if (PIE4bits.CCP1IE && PIR4bits.CCP1IF) {
         CCP1_ISR();
-    } else if (PIE7bits.CCP2IE == 1 && PIR7bits.CCP2IF == 1) {
+    } else if (PIE7bits.CCP2IE && PIR7bits.CCP2IF) {
         CCP2_ISR();
-    } else if (PIE4bits.TMR2IE == 1 && PIR4bits.TMR2IF == 1) {
+    } else if (PIE4bits.TMR2IE && PIR4bits.TMR2IF) {
         Timer_ISR();
     } else {
         // Should never happen
     }
-    //INTCON0bits.GIE = 1;
 }
 
 void System_Init(void) {
@@ -95,16 +92,16 @@ void System_Init(void) {
     OSCTUNE = 0x00;
     
     // Initialize pins
+
+    //Configure digital/analog
     TRISA = 0xE4;
     TRISB = 0xFF;
     TRISC = 0xBF;
+    
+    //Configure input/output
     ANSELC = 0x7C;
     ANSELB = 0xFF;
     ANSELA = 0xFF;
-    INLVLA = 0xFF;
-    INLVLB = 0xFF;
-    INLVLC = 0xFF;
-    INLVLE = 0x08;
     
     //Disable vector table
     INTCON0bits.IPEN = 0;
@@ -158,12 +155,10 @@ void main(void) {
     while (1) {
         //flag for incoming command
         if (command_flag) {
-            //INTCON0bits.GIE = 0;
             UART_Read_Line(command);
             ptr = command;
             PWM_Set(*ptr, *(ptr + 1));
             command_flag = false;
-            //INTCON0bits.GIE = 1;
         }
         
         //flag to print encoder every second
