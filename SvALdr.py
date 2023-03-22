@@ -1,86 +1,151 @@
+#cited: https://github.com/makerportal/tfluna-python. I used this as reference to code the Lidar.
+#cited: https://medium.com/@rovai/pan-tilt-multi-servo-control-62f723d03f26. I used this as a reference to code the setServoAngleUpDown and setServoAngleLeftRight functions
 #author: Milind Devnani
 from time import sleep
 import RPi.GPIO as GPIO
 import math
 import serial
 import time
+import pigpio
+import numpy as np
+#from gpiozero import AngularServo
 
+# Initializing global variables
 distance = 0
+oldDuty = 7.333333
+num_steps = 3
+#/
+sticker_not_in_centre = True
 
+last_servo_postiion = 45
+# Function to move the servo motor up and down based on the given angle
 def setServoAngleUpDown(angle):
-    servo = 17
-    
+    global oldDuty
+    # Setting up the GPIO pins for the servo motor
     #print("Gpio setup")
     GPIO.setup(servo, GPIO.OUT)
     
     #print("setup gpio")
-    pwm = GPIO.PWM(servo, 50)
+    pwm = GPIO.PWM(servo, 50)# PWM frequency of 50 Hz
     
     #print("pwm start")
-    pwm.start(8)
-    dutyCycle = angle / 18. + 3.
+    pwm.start(8)# Starting the PWM signal with duty cycle of 8%
+    # Calculating the duty cycle based on the angle of the servo motor
+    dutyCycle = angle / 18. + 3.#3% at 0 degrees, 13% at 180 degrees - so Duty cycle = angle/18 + 3
+    # Calculating the step size based on the number of steps
+    step_size = (dutyCycle - oldDuty)/num_steps
+    # Incrementing the duty cycle in steps to smoothly move the servo motor
+    for i in range(num_steps):
+        pwm.ChangeDutyCycle(oldDuty + step_size)
+        oldDuty = oldDuty + step_size
+        sleep(.02)
     
     #print(f"setting duty cycle: {dutyCycle}")
-    pwm.ChangeDutyCycle(dutyCycle)
     #print("------\n")
-    #sleep(0.01)
+    pwm.ChangeDutyCycle(dutyCycle)
+    # Setting the final duty cycle for the servo motor
+    sleep(0.02) #sleep time will not change with num_steps FOR NOW
+    # Stopping the PWM signal
+    pwm.ChangeDutyCycle(0)
+    
+    #Perhaps do all this in the init function then have setservoangle only be to changedutycycle?
+    #constantly starting the pwm to be at 8 seems like it may cause jittering
+    
+#def setServoAngleUpDown(angle):
+    #servo = 12
 
+
+
+    #pwm.set_PWM_frequency(servo,50)
+
+    #PW = angle*(2000.0/180.0) + 500.
+    #pwm.set_servo_pulsewidth(servo,PW)
+
+    #sleep(0.02)
+
+    
+    # #pigpio implementation
 
 def setServoAngleLeftRight(angle):
-    servo = 27
-    GPIO.setup(servo, GPIO.OUT)
-    pwm = GPIO.PWM(servo, 50)
-    pwm.start(8)
-    dutyCycle = angle / 18. + 3.
+    servo = 27# Setting the GPIO pin for the servo motor
+    GPIO.setup(servo, GPIO.OUT)# Setting up the GPIO pin for the servo motor
+    pwm = GPIO.PWM(servo, 300)# PWM frequency of 300 Hz
+    pwm.start(8)# Starting the PWM signal with duty cycle of 8%
+    # Calculating the duty cycle based on the angle of the servo motor
+    dutyCycle = angle / 18. + 3. # Setting the duty cycle for the servo motor/ #3% at 0 degrees, 13% at 180 degrees - so Duty cycle = angle/18 + 3
     pwm.ChangeDutyCycle(dutyCycle)
-    #sleep(0.01)
+    sleep(0.02)
+    # Stopping the PWM signal
+    pwm.ChangeDutyCycle(0)
+    
+#def setServoAngleUpDown(angle):
+    #servo = Angular Servo(12, min_angle=10, max_angle=180)
+    #servo.angle = angle
+    #sleep(0.2)
 
+# Function to initialize the necessary variables and settings
 def init():
-    global bytesAllowed, checkBytes, Lidar_UART, currAngle
+    global bytesAllowed, checkBytes, Lidar_UART, currAngle, servo, pwm
 
-    bytesAllowed = 11
-    checkBytes = 89
-    currAngle = 78
-    distance = 0
+    bytesAllowed = 12# Number of bytes taken at a time for UART communication
+    checkBytes = 89# Constant address for TF-Luna UART communication
+    currAngle = 78# Current angle of the servo motor
+    distance = 0# Initial distance measurement
+    servo = 12# GPIO pin for the servo motor
+    # servo = 18
 
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setwarnings(False)
-
+    GPIO.setmode(GPIO.BOARD)# Setting the GPIO pin numbering mode
+    GPIO.setwarnings(False)# Disabling warnings for the GPIO pins
+    #pwm = pigpio.pi()
+    #pwm.set_mode(servo,pigpio.OUTPUT)
+    # Connecting to the TF-Luna LiDAR using UART communication
     print("Now connecting to LiDAR")
-    Lidar_UART = serial.Serial("/dev/ttyUSB0", 115200, timeout=0)  # Connecting Lidar UART at baud rate 115200
-
+    # Connecting to the TF-Luna LiDAR using UART communication
+    Lidar_UART = serial.Serial("/dev/ttyUSB0", 115200, timeout=1)  # Connecting Lidar UART at baud rate 115200
 
     # IMPORTANT, WE HAVE TO MAKE SURE THE ARM STARTS AT 90 DEGREES AT STARTUP
-    for i in range(4):
+    # Resetting the servo motor position to 90 degrees
+    for i in range(5):
+        print("resetting servo position")
         setServoAngleUpDown(78)
-        #sleep(0.05)
-
-
+        sleep(0.02)
 
 def adjustAngle(x):
     a = .00093137255
     b = .8818627451
     c = -8.911
+    # calculate the new angle using the quadratic equation with coefficients a, b, and c
     newAng = (a * (x ** 2)) + (b * x) + c
-
-    if newAng < 0:
-        newAng = 0
-    elif newAng > 180:
-        newAng = 180
-
+    # print the quadratic equation for debugging purposes
+    print(f"{a * (x ** 2)} + {b*x} + {c}")
+    
+    # if the new angle is less than or equal to 89, set it to 89
+    if newAng <= 89:
+        newAng = 89
+    # if the new angle is greater than 91, set it to 91
+    elif newAng >91:
+        newAng = 91
+    # return the adjusted angle
     return newAng
 
 def getDistance(LidarBytes):
+    print("getting dist")
+    print(f"LidarBytes length: {len(LidarBytes)}")
+    print(f"LidarBytes: {(LidarBytes[0])} {(LidarBytes[1])} {(LidarBytes[2])} {(LidarBytes[3])} {(LidarBytes[4])} {(LidarBytes[5])} {(LidarBytes[6])} {(LidarBytes[7])} {(LidarBytes[8])} {(LidarBytes[9])} {(LidarBytes[10])} ")
+
     for i in range(9):
-        if LidarBytes[i] == checkBytes:
+        print(i)
+        if LidarBytes[i] == checkBytes: # check if first byte matches checkBytes value
             if LidarBytes[i+1] == checkBytes: # check first two byte
-                print("distance retrieved")
-                dist = LidarBytes[i+2] + LidarBytes[i+3]*256 # distance in next two bytes
-                dist = dist/100.0
+                print(f"distance retrieved: {LidarBytes[i+2]}, {LidarBytes[i+3]}")
+                dist = LidarBytes[i+2] # distance in next byte
+                dist = dist/100.0# convert distance from centimeters to meters
                 print(f"distance (cm): {dist*100}")
                 return dist
-        
-    return -1
+    dist = -1# if no distance is found, return -1
+    print(f"distance (cm): {dist}")
+
+    return dist
 
 
 
@@ -94,33 +159,52 @@ def readLidarBytes():
         numBytes = Lidar_UART.in_waiting  # count the number of bytes of the serial port
         print(f"numbytes = {numBytes}")
         if bytesAllowed < numBytes:
-            # From TF_LUNA take the 11 bytes of data coming in, we only care about the distance bytes
+            # From TF_LUNA take the 12 bytes of data coming in, we only care about the distance bytes
             print("reading lidar bits")
-            LidarBytes = Lidar_UART.read(11)
+            Lidar_UART.flushInput()
+            LidarBytes = Lidar_UART.read(12)
 
             # clearing the UART Communication to get updated data
             print("resetting input buffer")
             Lidar_UART.reset_input_buffer()
             
-            print("getting dist")
             tsGD = time.time()
             dist = getDistance(LidarBytes)
             teGD = time.time()
             print(f"runtime: {(teGD-tsGD)}")
-
+            print(dist)
             return dist
 
-
+'''
 def calculateAngle(zoffset, yoffset):
     global currAngle
-    flag = 1
+    #10,-150 >> atan >> -86,-15513, -4938
     angle = math.atan(yoffset / zoffset) * 180 / math.pi
-    currAngle += 90
+    currAngle = angle+90
     #currAngle += flag * angle
     #currAngle = max(0, min(180, currAngle))
     return currAngle
+'''
 
+def calculateAngle(zoffset, yoffset):
+    global currAngle
+    global last_servo_postiion
+    flag = 1 # initialize flag variable as 1
+    
+    if yoffset <=60 and yoffset >= -20: # if yoffset is between -20 and 60, return the last servo position
+        
+        return last_servo_postiion
+        
+    if yoffset < 0: # if yoffset is negative, multiply it by -1 and change the flag to -1
+        yoffset*=-1
+        flag = -1
+    angle = math.atan(yoffset/xoffset) * 180/math.pi # calculate the angle using the trigonometric function, arctan and convert it from radians to degrees
+    currAngle += flag * angle # add the calculated angle to the current angle with the appropriate flag value
+    currAngle = max(0, min(90, currAngle))
+    currAngle = 90 #78means 90degree
 
+    last_servo_postiion = currAngle # update the last servo position with the current angle
+    return currAngle# return the current angle
 
 
 def LidarLatestDistance():
@@ -156,31 +240,36 @@ def LidarLatestDistance():
 
 
 def moveArm(Y_offset_value):
-
+    # Assign Y_offset_value to a new variable
     new_yoffset = Y_offset_value
+    print("-----START-----")
     
-    tsLLD = time.time()
-    new_LidrDist = LidarLatestDistance()
-    teLLD = time.time()
-    print(f"runtime: {(teLLD-tsLLD)}")
+    # Declare global variables
+    global last_servo_postiion
+    global sticker_not_in_centre
     
-    print(f"new_yoffset: {type(new_yoffset)}")
+    # Check if sticker is already in the centre, if so return
+    if new_yoffset <=60 and new_yoffset >-20:
+        print("No need to move arm. Sticker is at centre ")
+        return
 
-    new_angle = calculateAngle(new_LidrDist, new_yoffset)
-    
-    new_angle = adjustAngle(new_yoffset)
-
-    for i in range(1, 5):
-	    
-        setServoAngleUpDown(Y_offset_value)
-        #sleep(0.01)
-        #print(new_angle)
-    print("Arm cycle completed as per offset_value")
-    return new_angle
-
-
-
-	
+    else:
+       # Move arm up if sticker is above the centre
+        if new_yoffset>60:
+            last_servo_postiion = last_servo_postiion + 1
+            setServoAngleUpDown(last_servo_postiion)
+            #sleep(0.02)
+            print("stcker is up from centre. moving arm up")
+        
+        # Move arm down if sticker is below the centre    
+        if new_yoffset<-20:
+            last_servo_postiion = last_servo_postiion - 1
+            setServoAngleUpDown(last_servo_postiion)
+            #sleep(0.02)
+            print("stcker is down from centre. moving arm down")
+        
+    print("------END------\n")
+    #return new_angle
 
 #step1 >> import this complete file in main_opencv_code >> import SvALdr as s,a,b,etc...
 
